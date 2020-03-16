@@ -1,0 +1,21 @@
+
+subroutine Gen_FULL_NAME
+    required out aValue, a
+proc
+    aValue = "John Doe"
+    xreturn
+endsubroutine
+
+subroutine Gen_PHONE
+    required out aValue, a
+proc
+    aValue = "5551234567"
+    xreturn
+endsubroutine
+
+subroutine Gen_TAX_ID
+    required out aValue, a
+proc
+    aValue = "123456789"
+    xreturn
+endsubroutine

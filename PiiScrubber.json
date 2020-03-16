@@ -1,0 +1,41 @@
+{
+  "JobDescription": "Convert production data for QA",
+  "Files": [
+    {
+      "FileDefinition": "CUSTOMERS",
+      "InputFile": "DAT:customers.ism",
+      "OutputFile": "SCRUBBED:customers.ism",
+      "Overwrite": true
+    },
+    {
+      "FileDefinition": "ITEMS",
+      "InputFile": "DAT:items.ism",
+      "OutputFile": "SCRUBBED:items.ism",
+      "Overwrite": true
+    },
+    {
+      "FileDefinition": "ORDERS",
+      "InputFile": "DAT:orders.ism",
+      "OutputFile": "SCRUBBED:orders.ism",
+      "Overwrite": true
+    },
+    {
+      "FileDefinition": "ORDER_ITEMS",
+      "InputFile": "DAT:order_items.ism",
+      "OutputFile": "SCRUBBED:order_items.ism",
+      "Overwrite": true
+    },
+    {
+      "FileDefinition": "VENDORS",
+      "InputFile": "DAT:vendors.ism",
+      "OutputFile": "SCRUBBED:vendors.ism",
+      "Overwrite": true
+    },
+    {
+      "FileDefinition": "SYSPARAMS",
+      "InputFile": "DAT:sysparams.ddf",
+      "OutputFile": "SCRUBBED:sysparams.ddf",
+      "Overwrite": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+
+function GetPiiType, string
+    required in aLongDescription, string
+    required in aUserText, string
+    stack record
+        piiTypePos,     int
+        semiColonPos,   int
+        piiType,        string
+proc
+    piiType = ^null
+
+    if (piiTypePos = %instr(1,aLongDescription,"PII_TYPE=")) then
+    begin
+        semiColonPos = %instr(piiTypePos+9,aLongDescription,";")
+        if (semiColonPos > piiTypePos+9)
+            piiType = aLongDescription(piiTypePos+9,semiColonPos-1)
+    end
+    else if (piiTypePos = %instr(1,aUserText,"PII_TYPE="))
+    begin
+        semiColonPos = %instr(piiTypePos+9,aUserText,";")
+        if (semiColonPos > piiTypePos+9)
+            piiType = aUserText(piiTypePos+9,semiColonPos-1)
+    end
+
+    freturn piiType
+
+endfunction

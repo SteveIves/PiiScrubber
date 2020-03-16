@@ -1,0 +1,156 @@
+namespace PiiScrubber
+
+    public class DataGenerator
+
+        private mValueCacheChn, int, 0
+        private mCacheFile, string
+
+        ;;; <summary>
+        ;;; Represents an entry in the cache file
+        ;;; </summary>
+        private record mValueCache
+            PiiType,        a32
+            OriginalValue,  a200
+            NewValue,       a200
+        endrecord
+
+        ;;; <summary>
+        ;;; Constructor
+        ;;; </summary>
+        public method DataGenerator
+            record
+                cacheFile, a255
+                len, i4
+            endrecord
+        proc
+            ;;Get the cache file name
+            xcall getlog("PII_CACHE_FILE",cacheFile,len)
+            if (len) then
+            begin
+                mCacheFile = %atrim(cacheFile)
+            end
+            else
+            begin
+                ;;Noit specified, default to a file in the current location
+                mCacheFile = "PiiCache.ism"
+            end
+
+            ;;Open the value cache file
+            repeat
+            begin
+                try
+                begin
+                    open(mValueCacheChn,u:i,mCacheFile)
+                    exitloop
+                end
+                catch (e, @NoFileFoundException)
+                begin
+                    ;;The cache file is not present, create a new one
+                    xcall isamc(mCacheFile + ",compress,erase_on_delete,tbyte",^size(mValueCache),1,"start=1:33,length=32:200,nodups,nomodify")
+                end
+                catch (e, @Exception)
+                begin
+                    throw new ApplicationException("Failed to open value cache file " + mCacheFile + " Error was " + e.Message)
+                end
+                endtry
+            end
+        endmethod
+
+        ;;; <summary>
+        ;;; Destructor (finalizer)
+        ;;; </summary>
+        method ~DataGenerator
+        proc
+            if (mValueCacheChn && %chopen(mValueCacheChn))
+                close mValueCacheChn
+            ;;If we have been asked to, delete the cache file
+            if (this.DeleteCache)
+            begin
+                try
+                begin
+                    xcall delet(mCacheFile)
+                end
+                catch (e, @Exception)
+                begin
+                    nop
+                end
+                endtry
+            end
+        endmethod
+
+        ;;; <summary>
+        ;;; Generate a new value.
+        ;;; </summary>
+        ;;; <param name="aPiiSpec">PII specifications.</param>
+        ;;; <param name="aFieldValue">Value to be replaced.</param>
+        ;;; <returns>New data for the field.</returns>
+        public method Generate,         void
+            required in    aPiiSpec,    @PiiSpec
+            required inout aFieldValue, a
+            record
+                savePiiType,        a^size(mValueCache.PiiType)
+                saveOriginalValue,  a^size(mValueCache.OriginalValue)
+            endrecord
+        proc
+            ;;Do we have a cached value for this type of PII?
+            try
+            begin
+                savePiiType       = mValueCache.PiiType       = aPiiSpec.PiiType
+                saveOriginalValue = mValueCache.OriginalValue = aFieldValue
+                read(mValueCacheChn,mValueCache,%keyval(mValueCacheChn,mValueCache,0),LOCK:Q_NO_LOCK)
+
+                ;;Yes we do!
+                aFieldValue = mValueCache.NewValue
+                this.CacheHits = this.CacheHits + 1
+            end
+            catch (e, @Exception)
+            begin
+                ;;No we don't. Generate and return a new random value.
+                this.CacheMisses = this.CacheMisses + 1
+
+                try
+                begin
+                    xcall xsubr("Gen_" + aPiiSpec.PiiType,aFieldValue)
+                end
+                catch (e, @Exception)
+                begin
+                    throw new ApplicationException("Encountered unsupported PII type " + aPiiSpec.PiiType)
+                end
+                endtry
+
+                ;;Save the new value to the cache file
+                try
+                begin
+                    mValueCache.PiiType = savePiiType
+                    mValueCache.OriginalValue = saveOriginalValue
+                    mValueCache.NewValue = aFieldValue
+                    store(mValueCacheChn,mValueCache)
+                end
+                catch (e, @Exception)
+                begin
+                    throw new ApplicationException("Failed to cache value for '" + %atrim(PiiType) + "' original value '" + %atrim(OriginalValue) + "' new value '" + %atrim(NewValue) + "'. Error was " + e.Message)
+                end
+                endtry
+            end
+            endtry
+
+        endmethod
+
+        ;;; <summary>
+        ;;; Should the cache file be deleted at the end of the run?
+        ;;; </summary>
+        public readwrite property DeleteCache, boolean, false
+
+        ;;; <summary>
+        ;;; How many values were provided from the cache file?
+        ;;; </summary>
+        public setprivate property CacheHits, int
+
+        ;;; <summary>
+        ;;; How many values were not provided from the cache file?
+        ;;; </summary>
+        public setprivate property CacheMisses, int
+
+    endclass
+
+endnamespace

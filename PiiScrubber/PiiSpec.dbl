@@ -1,0 +1,17 @@
+namespace PiiScrubber
+
+    public enum PiiDataType
+        None
+        Alpha
+        Date
+        Decimal
+    endenum
+
+    public class PiiSpec
+        public PiiType, string
+        public StartPos, int
+        public Length, int
+        public DataType, PiiDataType
+    endclass
+
+endnamespace

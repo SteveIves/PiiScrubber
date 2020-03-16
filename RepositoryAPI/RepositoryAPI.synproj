@@ -1,0 +1,104 @@
+﻿<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(SolutionDir)Common.props" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Configuration)' == '' ">x86</Platform>
+    <Name>RepositoryAPI</Name>
+    <StartupObject>
+    </StartupObject>
+    <OutputName>RepositoryAPI</OutputName>
+    <ProjectGuid>{286c9950-edd5-4e4e-859d-18b3af3e8156}</ProjectGuid>
+    <ProjectTypeGuids>{7B8CF543-378A-4EC1-BB1B-98E4DC6E6820};{BBD0F5D1-1CC4-42fd-BA4C-A96779C64378}</ProjectTypeGuids>
+    <OutputType>elb</OutputType>
+    <DBL_qTrim>True</DBL_qTrim>
+    <DBL_qAlign>True</DBL_qAlign>
+    <EnableCommonProperties>True</EnableCommonProperties>
+    <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
+    <RootNamespace>RepositoryAPI</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <IncludeDebugInformation>true</IncludeDebugInformation>
+    <OutputPath>$(SolutionDir)exe</OutputPath>
+    <UnevaluatedOutputPath>EXE:</UnevaluatedOutputPath>
+    <PlatformTarget>x86</PlatformTarget>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <DebugOptimize>Debug</DebugOptimize>
+    <DBLink_ReferenceCheck>True</DBLink_ReferenceCheck>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <IncludeDebugInformation>true</IncludeDebugInformation>
+    <OutputPath>$(SolutionDir)exe</OutputPath>
+    <UnevaluatedOutputPath>EXE:</UnevaluatedOutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <DebugOptimize>Debug</DebugOptimize>
+    <DBLink_ReferenceCheck>True</DBLink_ReferenceCheck>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <IncludeDebugInformation>true</IncludeDebugInformation>
+    <OutputPath>$(SolutionDir)exe</OutputPath>
+    <UnevaluatedOutputPath>EXE:</UnevaluatedOutputPath>
+    <PlatformTarget>x86</PlatformTarget>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <DebugOptimize>Optimize</DebugOptimize>
+    <DBLink_ReferenceCheck>True</DBLink_ReferenceCheck>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <IncludeDebugInformation>true</IncludeDebugInformation>
+    <OutputPath>$(SolutionDir)exe</OutputPath>
+    <UnevaluatedOutputPath>EXE:</UnevaluatedOutputPath>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+    <DebugOptimize>Optimize</DebugOptimize>
+    <DBLink_ReferenceCheck>True</DBLink_ReferenceCheck>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath)\Synergex\dbl\Synergex.SynergyDE.Traditional.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="DataMapping.dbl" />
+    <Compile Include="DataMappings.dbl" />
+    <Compile Include="Repository.dbl" />
+    <Compile Include="RpsEnum.dbl" />
+    <Compile Include="RpsEnumCollection.dbl" />
+    <Compile Include="RpsEnumMember.dbl" />
+    <Compile Include="RpsEnumMemberCollection.dbl" />
+    <Compile Include="RpsExceptions.dbl" />
+    <Compile Include="RpsField.dbl" />
+    <Compile Include="RpsFieldCollection.dbl" />
+    <Compile Include="RpsFile.dbl" />
+    <Compile Include="RpsFileCollection.dbl" />
+    <Compile Include="RpsFormat.dbl" />
+    <Compile Include="RpsFormatCollection.dbl" />
+    <Compile Include="RpsKey.dbl" />
+    <Compile Include="RpsKeyCollection.dbl" />
+    <Compile Include="RpsKeySegment.dbl" />
+    <Compile Include="RpsKeySegmentCollection.dbl" />
+    <Compile Include="RpsRelation.dbl" />
+    <Compile Include="RpsRelationCollection.dbl" />
+    <Compile Include="RpsStructure.dbl" />
+    <Compile Include="RpsStructureCollection.dbl" />
+    <Compile Include="RpsTag.dbl" />
+    <Compile Include="RpsTagCollection.dbl" />
+    <Compile Include="RpsTemplate.dbl" />
+    <Compile Include="RpsTemplateCollection.dbl" />
+    <Compile Include="RpsUtils.dbl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DataMappingsExample.xml">
+      <SubType>Content</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="DBLDIR:synxml.elb">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RPSLIB:ddlib.elb">
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

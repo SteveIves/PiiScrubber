@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CommonEnvVars>DAT=$(SolutionDir)SampleData;PII_CACHE_FILE=DAT:PiiCache.ism;SCRUBBED=$(SolutionDir)OutputFiles;EXE=$(SolutionDir)exe;PII_CONTROL_FILE=$(SolutionDir)PiiScrubber.json;RPS_DONT_COMPARE_SEGS=1</CommonEnvVars>
+  </PropertyGroup>
+</Project>

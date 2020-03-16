@@ -1,0 +1,62 @@
+
+import PiiScrubber
+import CodeGen.RepositoryAPI
+
+function GetDataType, PiiDataType
+    required in aFld, @RpsField 
+    stack record
+        fieldDataType, PiiDataType
+    endrecord
+proc
+
+    using aFld.DataType select
+    (RpsFieldDataType.Alpha),
+        fieldDataType = PiiDataType.Alpha
+    (RpsFieldDataType.Binary),
+        fieldDataType = PiiDataType.None
+    (RpsFieldDataType.Boolean),
+        fieldDataType = PiiDataType.None
+    (RpsFieldDataType.Decimal),
+    begin
+        using aFld.DataTypeSubclass select
+        (RpsFieldSubclass.None),
+        begin
+            ;;Is it implied?
+            if (aFld.Precision != 0) then
+                fieldDataType = PiiDataType.None
+            else
+                fieldDataType = PiiDataType.Decimal
+        end
+        (RpsFieldSubclass.Binary),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.DateYYJJJ),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.DateYYMMDD),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.DateYYPP),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.DateYYYYJJJ),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.DateYYYYMMDD),
+            fieldDataType = PiiDataType.Date
+        (RpsFieldSubclass.DateYYYYPP),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.TimeHHMM),
+            fieldDataType = PiiDataType.None
+        (RpsFieldSubclass.TimeHHMMSS),
+            fieldDataType = PiiDataType.None
+        endusing
+    end
+    (RpsFieldDataType.Enum),
+        fieldDataType = PiiDataType.None
+    (RpsFieldDataType.Integer),
+        fieldDataType = PiiDataType.None
+    (RpsFieldDataType.StructField),
+        fieldDataType = PiiDataType.None
+    (RpsFieldDataType.User),
+        fieldDataType = PiiDataType.None
+    endusing
+    
+    freturn fieldDataType
+
+endfunction

@@ -1,0 +1,395 @@
+
+import PiiScrubber
+import CodeGen.RepositoryAPI
+import Harmony.TraditionalBridge
+import System.Collections
+import Json
+
+;;; <summary>
+;;; The main entry point for the application.
+;;; </summary>
+main PiiScrubber
+    record
+        ok,             boolean, true
+        tt,             int
+        ix,             int
+        iy,             int
+        chin,           int
+        chout,          int
+        maxlen,         int
+        recbuf,         a65535
+        rps,            @Repository
+        file,           @RpsFile
+        str,            @RpsStructure
+        sinfo,          @StringDictionary
+        spii,           @StructurePiiSpecs
+        gen,            @DataGenerator
+        recs,           int
+        hits,           int
+        controlFile,    string
+    endrecord
+proc
+    xcall flags(7004020,1)
+    open(tt=0,i,"tt:")
+
+    sinfo = new StringDictionary()
+    rps = new Repository()
+    gen = new DataGenerator()
+
+    ;;Don't delete the cache file
+    gen.DeleteCache = false
+
+    if (Repository.RpsControl.error)
+    begin
+        writes(tt,"ERROR: failed to open repository!")
+        ok = false
+    end
+
+    if (ok && rps.Files.Count == 0)
+    begin
+        writes(tt,"ERROR: Repository contains no file definitions!")
+        ok = false
+    end
+
+    ;;Locate the control file
+    if (ok)
+    begin
+        xcall getlog("PII_CONTROL_FILE",recbuf,ix)
+        if (ix && recbuf) then
+            controlFile = %atrim(recbuf)
+        else
+            controlFile = "PiiScrubber.json"
+    end
+
+    ;;Parse the JSON control file
+
+    if (ok)
+    begin
+        data jsonParser, @Json, new Json()
+        data jsonObj, @JsonObject, (@JsonObject)jsonParser.ParseFile(controlFile)
+        data tasks, @ArrayList, ((@JsonArray)jsonObj.GetProperty("Files")).arrayValues
+
+        writes(tt,"Processing job: " + ((@JsonText)jsonObj.GetProperty("JobDescription")).Value)
+        writes(tt,"")
+
+        ;;Iterate through the tasks defined in the JSON file
+
+        foreach jsonObj in tasks
+        begin
+            data fileName, string
+            data inputFile, string 
+            data outputFile, string
+            data overwrite, boolean
+
+            ;;Extract the required repository file definintion name
+            fileName = ((@JsonText)jsonObj.GetProperty("FileDefinition")).Value
+
+            ;;Extract the optional input file spec
+            if (jsonObj.HasProperty("InputFile"))
+                inputFile = ((@JsonText)jsonObj.GetProperty("InputFile")).Value
+
+            ;;Extract the required output file spec
+            outputFile = ((@JsonText)jsonObj.GetProperty("OutputFile")).Value
+
+            ;;Extract the optional overwrite value, defaulting to false if not present
+            if (jsonObj.HasProperty("Overwrite")) then
+                overwrite = ((@JsonBoolean)jsonObj.GetProperty("Overwrite")).Value
+            else
+                overwrite = false
+
+            ;;Reset counters
+            recs = 0
+            hits = 0
+
+            ;;Load the repository file definition
+            file = new RpsFile(fileName)
+
+            ;;If the input file was not specified in the JSON file then default to the repository file spec
+            if (inputFile==^null)
+            begin
+                inputFile = file.FileSpec
+            end
+
+            writes (tt,"Processing file : " + file.Name)
+            writes (tt," - Input file   : " + inputFile)
+            display(tt," - Structures   : " + %string(file.StructureCount) + " (")
+
+            ;;List the structures and determine the maximum record length
+            maxlen = 0
+            for iy from 0 thru file.StructureCount - 1
+            begin
+                str = file.Structures[iy]
+                display(tt,str.Name)
+
+                if (iy < file.StructureCount - 1)
+                    display(tt,",")
+
+                if (str.Length > maxlen)
+                    maxlen = str.Length
+
+                ;;Do we already have PII specs for this structure?
+                if (!sinfo.TryGet(str.Name,spii))
+                begin
+                    data fld, @RpsField
+                    data fldnum, int
+
+                    spii = new StructurePiiSpecs()
+                    &    {
+                    &    StructureName = str.Name, 
+                    &    StructureLength = str.Length
+                    &    }
+
+                    for fldnum from 0 thru str.Fields.Count - 1
+                    begin
+                        data fieldPiiType,  string
+                        data fieldDataType, PiiDataType
+                        data fieldPiiSpec,  @PiiSpec
+
+                        fld = str.Fields[fldnum]
+
+                        ;;Make sure the field is not a multi-dimension array
+                        if ((fld.ArrayDimension[2])||(fld.ArrayDimension[3])||(fld.ArrayDimension[4]))
+                        begin
+                            throw new ApplicationException("Unsupported multi-dimension array encountered (" + str.Name + "." + fld.Name + ")")
+                        end
+
+                        ;;Make sure the field is not a GROUP
+                        if (fld.IsGroup)
+                        begin
+                            throw new ApplicationException("Unsupported GROUP field encountered (" + str.Name + "." + fld.Name + ")")
+                        end
+
+                        ;;Look for PII_TYPE=XXX; in long description or user text
+                        fieldPiiType = GetPiiType(fld.LongDescription,fld.UserText)
+
+                        ;;Do we have a PII type for this field?
+                        if (fieldPiiType != ^null)
+                        begin
+                            ;;Determine the data type
+                            fieldDataType = %GetDataType(fld)
+
+                            if (fld.ArrayDimension[1]>1) then
+                            begin
+                                data ai, int
+                                for ai from 1 thru fld.ArrayDimension[1]
+                                begin
+                                    ;;Create the PII spec for the array element
+                                    fieldPiiSpec = new PiiSpec()
+                                    &    {
+                                    &    StartPos = fld.StartPosition + fld.Size*(ai-1),
+                                    &    Length = fld.Size,
+                                    &    PiiType = fieldPiiType,
+                                    &    DataType = fieldDataType
+                                    &    }
+                                    ;;Add the field's PII spec to the collection of PII specs for the structure
+                                    spii.PiiSpecs.Add(fieldPiiSpec)
+                                end
+                            end
+                            else
+                            begin
+                                ;;Create the PII spec for the field
+                                fieldPiiSpec = new PiiSpec()
+                                &    {
+                                &    StartPos = fld.StartPosition,
+                                &    Length = fld.Size,
+                                &    PiiType = fieldPiiType,
+                                &    DataType = fieldDataType
+                                &    }
+                                ;;Add the field's PII spec to the collection of PII specs for the structure
+                                spii.PiiSpecs.Add(fieldPiiSpec)
+                            end
+
+                        end
+                    end
+                    ;;Add the PII info to the collection
+                    sinfo.Add(str.Name,spii)
+                end
+            end
+
+            writes(tt,")")
+
+            ;;Open the original data file
+            begin
+                using file.FileType select
+                ("DBL ISAM"),
+                    open(chin=0,i:i,inputFile) [ERR=ErrOpenIn]
+                ("RELATIVE"),
+                    open(chin=0,i:r,inputFile) [ERR=ErrOpenIn]
+                endusing
+                exit
+        ErrOpenIn,
+                writes(tt,"ERROR: Failed to open input file " + inputFile)
+                ok = false
+                exitloop
+            end
+
+            ;;Create the new output file
+            begin
+                data fileCreated, string
+                data errorText, string
+
+                using file.FileType select
+                ("DBL ISAM"),
+                begin
+                    if (%CreateFileFromRpsFile(Repository.RpsControl,file.Name,overwrite,outputFile,fileCreated,errorText)) then
+                    begin
+                        open(chout=0,u:i,outputFile) [ERR=ErrOpenOut]
+                        writes(tt," - Output file  : " + outputFile + " (" + errorText + ")")
+                    end
+                    else
+                    begin
+                        writes(tt,"ERROR: Failed to create output file " + outputFile + " Error was: " + errorText)
+                        ok = false
+                    end
+                end
+                ("RELATIVE"),
+                begin
+                    if (overwrite) then
+                    begin
+                        xcall delet(outputFile)
+                    end
+                    else
+                    begin
+                        ;;Make sure the file isn't already there
+                        try
+                        begin
+                            data tmpchn, int
+                            open(tmpchn=0,i:s,outputFile)
+                            writes(tt,"ERROR: Failed to create output file " + outputFile + " Error was: " + errorText)
+                            close tmpchn
+                            ok = false
+                        end
+                        catch (e, @ProtectionViolationException)
+                        begin
+                            writes(tt,"ERROR: Failed to create output file " + outputFile + " Error was: " + errorText)
+                            ok = false
+                        end
+                        catch (e, @Exception)
+                        begin
+                            nop
+                        end
+                        endtry
+                    end
+                    if (ok)
+                    begin
+                        ;;Good to go, create the new output file
+                        open(chout=0,o:r,outputFile,RECSIZ:spii.StructureLength) [ERR=ErrOpenOut]
+                        writes(tt," - Output file  : " + outputFile + " (created)")
+                    end
+                end
+                endusing
+
+                ;;Output file is open
+                exit
+
+        ErrOpenOut,
+                writes(tt,"ERROR: Failed to open output file " + outputFile)
+                ok = false
+                exitloop
+            end
+
+            if (ok)
+            begin
+                ;;Files are open, process each record
+
+                ;;If it's a single record format file we can get the PII data one time
+                if (file.StructureCount == 1)
+                begin
+                    data nm, string, file.Structures[0].Name
+                    spii = (@StructurePiiSpecs)sinfo.Get(nm)
+                end
+
+                repeat
+                begin
+                    using file.FileType select
+                    ("DBL ISAM"),
+                    begin
+                        reads(chin,recbuf,NoMoreData)
+                    end
+                    ("RELATIVE"),
+                    begin
+                        reads(chin,recbuf(1:spii.StructureLength),NoMoreData)
+                    end
+                    endusing
+
+                    recs += 1
+
+                    ;;If it's a multi record format file, figure out which structure is associuted with
+                    ;;the current record and get the PII info for that structure
+                    if (file.StructureCount > 1)
+                        spii = (@StructurePiiSpecs)sinfo.Get(%GetStructureName(recbuf,file.Structures))
+
+                    ;;Does the records structure have any PII fields
+                    if (spii.PiiSpecs.Count > 0)
+                    begin
+                        ;;Yes, we have PII specs, iterate through them
+                        data fieldPiiSpec,  @PiiSpec
+                        foreach fieldPiiSpec in spii.PiiSpecs
+                        begin
+                            ;;Skip fields that don't contain any data
+                            using fieldPiiSpec.DataType select
+                            (PiiDataType.Alpha),
+                            begin
+                                if (!recbuf(fieldPiiSpec.StartPos:fieldPiiSpec.Length))
+                                    nextloop
+                            end
+                            (PiiDataType.Decimal,PiiDataType.Date),
+                            begin
+                                if (!^d(recbuf(fieldPiiSpec.StartPos:fieldPiiSpec.Length)))
+                                    nextloop
+                            end
+                            endusing
+
+                            ;;Replace the data in this field
+                            gen.Generate(fieldPiiSpec,recbuf(fieldPiiSpec.StartPos:fieldPiiSpec.Length))
+                            hits += 1
+                        end
+                    end
+
+                    ;;Save the record to the output file
+                    using file.FileType select
+                    ("DBL ISAM"),
+                    begin
+                        store(chout,recbuf(1:spii.StructureLength))
+                    end
+                    ("RELATIVE"),
+                    begin
+                        writes(chout,recbuf(1:spii.StructureLength))
+                    end
+                    endusing
+
+                    nextloop
+
+                NoMoreData,
+                    exitloop
+                end
+            end
+
+            ;;Close the input file
+            if (chin && %chopen(chin))
+                close chin
+
+            ;;Close the output file
+            if (chout && %chopen(chout))
+                close chout
+
+            writes(tt," - Summary      : " + %string(recs) + " records processed, " + %string(hits) + " PII fields replaced")
+            writes(tt,"")
+        end
+    end
+
+    writes(tt,"All done. " + %string(gen.CacheHits) + " cache hits, " + %string(gen.CacheMisses) + " cache misses")
+    writes(tt,"")
+
+    clear sinfo, rps, gen
+
+    display(tt,"Press a key: ")
+    accept(tt,ix)
+    writes(tt,"")
+
+    close tt
+
+    stop
+
+endmain
+

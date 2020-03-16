@@ -1,0 +1,1 @@
+In the default configuration as checked in this is where scrubbed files will be created.
